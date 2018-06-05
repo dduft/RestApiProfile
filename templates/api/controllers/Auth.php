@@ -2,10 +2,10 @@
 
 use \Firebase\JWT\JWT;
 
-class Auth
-{
-  public static function auth() 
-  {
+class Auth {
+  const AUTH = false;
+
+  public static function auth() {
     if(wire('user')->isGuest())
       throw new \Exception('user is not logged in', 401);
 
@@ -34,18 +34,23 @@ class Auth
   }
 
   public static function login($data) {
+    // in case of CORS rewrite params
+    if (isset($data->params)) {
+      $data->username = $data->params['username'];
+      $data->password = $data->params['password'];
+    }
     ApiHelper::checkAndSanitizeRequiredParameters($data, ['username|selectorValue', 'password|string']);
 
     $user = wire('users')->get($data->username);
 
     // if(!$user->id) throw new \Exception("User with username: $data->username not found", 404);
     // prevent username sniffing by just throwing a general exception:
-    if(!$user->id) throw new \Exception("Login not successful", 401); 
+    if(!$user->id) throw new \Exception("Login not successful", 401);
 
     $loggedIn = wire('session')->login($data->username, $data->password);
 
     if($loggedIn) return self::auth();
-    else throw new \Exception("Login not successful", 401); 
+    else throw new \Exception("Login not successful", 401);
   }
 
   public static function logout() {

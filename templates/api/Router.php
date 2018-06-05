@@ -5,43 +5,51 @@
 // and some stuff I put in there by myself
 
 require_once "{$config->paths->root}/vendor/autoload.php";
+require_once dirname(__FILE__) . "/Cors.php";
 require_once dirname(__FILE__) . "/ApiHelper.php";
-require_once dirname(__FILE__) . "/Auth.php";
-require_once dirname(__FILE__) . "/Test.php";
+require_once dirname(__FILE__) . "/controllers/Auth.php";
+require_once dirname(__FILE__) . "/controllers/PagesController.php";
+require_once dirname(__FILE__) . "/controllers/ContactController.php";
 
 use \Firebase\JWT\JWT;
 
-$content = Router::go(function(\FastRoute\RouteCollector $r)
-{
-  $r->addRoute('GET', '/', ApiHelper::class . '@noEndpoint');
-  $r->addRoute('POST', '/', ApiHelper::class . '@noEndpoint');
-  $r->addRoute('PUT', '/', ApiHelper::class . '@noEndpoint');
-  $r->addRoute('PATCH', '/', ApiHelper::class . '@noEndpoint');
-  $r->addRoute('DELETE', '/', ApiHelper::class . '@noEndpoint');
+Cors::apply();
 
-  $r->addGroup('/auth', function (\FastRoute\RouteCollector $r)
-  {
-    $r->addRoute('GET', '', Auth::class . '@auth');
-    $r->addRoute('POST', '', Auth::class . '@login');
-    $r->addRoute('DELETE', '', Auth::class . '@logout');
+$content = Router::go(function(\FastRoute\RouteCollector $router) {
+  $router->addRoute('GET', '/', ApiHelper::class . '@noEndpoint');
+  $router->addRoute('POST', '/', ApiHelper::class . '@noEndpoint');
+  $router->addRoute('PUT', '/', ApiHelper::class . '@noEndpoint');
+  $router->addRoute('PATCH', '/', ApiHelper::class . '@noEndpoint');
+  $router->addRoute('DELETE', '/', ApiHelper::class . '@noEndpoint');
+
+  $router->addGroup('/auth', function (\FastRoute\RouteCollector $router) {
+    $router->addRoute('GET', '', Auth::class . '@auth');
+    $router->addRoute('POST', '', Auth::class . '@login');
+    $router->addRoute('DELETE', '', Auth::class . '@logout');
   });
 
-  $r->addGroup('/test', function (\FastRoute\RouteCollector $r)
-  {
-    $r->addRoute('GET', '', Test::class . '@getSomeData');
-    $r->addRoute('POST', '', Test::class . '@postWithSomeData');
+  $router->addGroup('/pages', function (\FastRoute\RouteCollector $router) {
+    $router->addRoute('GET', '/path', PagesController::class . '@show');
+    $router->addRoute('GET', '', PagesController::class . '@index');
+    $router->addRoute('PATCH', '/mail', PagesController::class . '@mail');
+  });
+
+  $router->addGroup('/contact', function (\FastRoute\RouteCollector $router) {
+    $router->addRoute('PATCH', '/mail', ContactController::class . '@mail');
+    $router->addRoute('PATCH', '/want_help', ContactController::class . '@want_help');
+    $router->addRoute('PATCH', '/need_help', ContactController::class . '@need_help');
   });
 });
 
-class Router
-{
+
+
+class Router {
   /**
    * @param callable $callback Route configurator
    * @param string   $path Optionally overwrite the default of using the whole urlSegmentStr
    * @throws Wire404Exception
    */
-  public static function go(callable $callback, $path = '')
-  {
+  public static function go(callable $callback, $path = '') {
     $dispatcher = \FastRoute\simpleDispatcher($callback);
 
     $routeInfo = $dispatcher->dispatch(
@@ -66,9 +74,7 @@ class Router
   }
 
 
-  public static function handle($class, $method, $vars)
-  {
-    $authActive = true;
+  public static function handle($class, $method, $vars) {
 
     header("Content-Type: application/json");
     $return = new \StdClass();
@@ -76,8 +82,7 @@ class Router
 
     // if regular and not auth request, check Authorization:
     // otherwise go right through regular api handling
-    if($authActive === true && $class !== Auth::class)
-    {
+    if($class::AUTH == true) {
       // convert all headers to lowercase:
       $headers = array();
       foreach(apache_request_headers() as $key => $value) {
@@ -105,7 +110,7 @@ class Router
         list($jwt) = sscanf($headers['authorization'], 'Bearer %s');
         $decoded = JWT::decode($jwt, $secret, array('HS256'));
       }
-      catch (\Exception $e) 
+      catch (\Exception $e)
       {
         http_response_code(401);
         return;
@@ -118,11 +123,12 @@ class Router
     try {
       // merge url $vars with params
       $vars = (object) array_merge((array) Router::params(), (array) $vars);
+
       $data = $class::$method($vars);
 
       if(gettype($data) == "string") $return->message = $data;
       else $return = $data;
-    } 
+    }
     catch (\Exception $e) {
       $responseCode = 404;
       $return->error = $e->getMessage();
@@ -131,12 +137,12 @@ class Router
       if($e->getCode()) $responseCode = $e->getCode();
       http_response_code($responseCode);
     }
-  
+
     echo json_encode($return);
   }
 
 
-  public static function params($index=null, $default = null, $source = null) 
+  public static function params($index=null, $default = null, $source = null)
   {
     // check for php://input and merge with $_REQUEST
       if ((isset($_SERVER["CONTENT_TYPE"]) &&
@@ -145,6 +151,10 @@ class Router
         stripos($_SERVER["HTTP_CONTENT_TYPE"],'application/json') !== false) // PHP build in Webserver !?
         ) {
         if ($json = json_decode(@file_get_contents('php://input'), true)) {
+          //in case of CORS rewrite params or why ever?!
+          if (isset($json['params'])) {
+            $json = $json['params'];
+          }
           $_REQUEST = array_merge($_REQUEST, $json);
         }
       }
@@ -164,17 +174,17 @@ class Router
   }
 
 
-  public static function fetch_from_array(&$array, $index=null, $default = null) 
+  public static function fetch_from_array(&$array, $index=null, $default = null)
   {
-    if (is_null($index)) 
+    if (is_null($index))
     {
       return $array;
-    } 
-    elseif (isset($array[$index])) 
+    }
+    elseif (isset($array[$index]))
     {
       return $array[$index];
-    } 
-    elseif (strpos($index, '/')) 
+    }
+    elseif (strpos($index, '/'))
     {
       $keys = explode('/', $index);
 
