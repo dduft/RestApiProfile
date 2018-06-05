@@ -1,13 +1,15 @@
-# RestApiProfile
-Build a rest API with ProcessWire. Including JWT-Auth and a Vue SPA example
+# PwJsonPage
+cloned from [RestApiProfile](https://github.com/thomasaull/RestApiProfile)
 
-**Disclaimer**
+Get Json-Page-Content from Processwire to feed front-end frameworks like Angular or Vue
 
-This is an example, there is no guarantee this code is secure! Use at your own risk and/or send me PRs with improvements.
 
 **Credits…**
 
-…go to [Benjamin Milde](https://github.com/LostKobrakai) for his code example on how to use FastRoute with ProcessWire and [Camilo Castro](https://gist.github.com/clsource) for this [Gist](https://gist.github.com/clsource/dc7be74afcbfc5fe752c)
+[Thomas Aull](https://github.com/thomasaull/RestApiProfile) for his RestApiProfile, which was the basis for this project
+[Benjamin Milde](https://github.com/LostKobrakai) for his code example on how to use FastRoute with ProcessWire
+[Camilo Castro](https://gist.github.com/clsource) for this [Gist](https://gist.github.com/clsource/dc7be74afcbfc5fe752c)
+
 
 ### Install
 
